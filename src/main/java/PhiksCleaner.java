@@ -10,40 +10,38 @@ import java.util.Arrays;
 import java.util.List;
 
 public class PhiksCleaner {
+	static int featureThreshold = 1;
+	static List<String> featureList = new ArrayList();
+	static File cleanedDatasetFile = new File("datasets/cleaned_wiki_articles03.txt");
+	static File featureFile = new File("datasets/feature_list03.txt");
+	static File dict = new File("database/american-english");
+	static File stopWordFile = new File("database/stopwords.txt");
+	static List<String> dictList = new ArrayList(); 
+	static List<String> stopwordList = new ArrayList();
+	static long tupleSize = 0; 
+	static long articleTotal = 0;
 	public static void main(String[] args) throws IOException {
-		List<String> featureList = new ArrayList();
+		loadDictionary();	
+		System.out.println("Load dictionary. Size = " +  dictList.size());
+		loadFeatureList();
+		System.out.println("Load feature list. Size = " + featureList.size());
+
+		cleanData("datasets/wiki_articles_p1.xml", false);	
+		cleanData("datasets/wiki_articles_p2.xml", true);
+		cleanData("datasets/wiki_articles_p3.xml", true);
+		cleanData("datasets/wiki_articles_p4.xml", true);
+		//formatData("datasets/binary_wiki_articles03.txt");
+	}
+
+	static void cleanData(String xmlFile, Boolean append) throws IOException {
 		// Prepare output cleaned dataset file
-		File cleanedDatasetFile = new File("datasets/cleaned_wiki_articles.txt");
-		BufferedWriter bw = new BufferedWriter(new FileWriter(cleanedDatasetFile));
+		BufferedWriter bw = new BufferedWriter(new FileWriter(cleanedDatasetFile, append));
 	
 		// Prepare output feature list file
-		File featureFile = new File("datasets/feature_list.txt");
-		BufferedWriter bw2 = new BufferedWriter(new FileWriter(featureFile));
-
-		// Read dictionary
-		File dict = new File("database/american-english");
-		BufferedReader br = new BufferedReader(new FileReader(dict));
-		String line;
-		List<String> dictList = new ArrayList(); 
-		while((line = br.readLine()) != null) {
-			//System.out.println(line);
-			dictList.add(line);
-		}
-		br.close();
-	 
-	 	// Read stopWord list
-	 	File stopWordFile = new File("database/stopwordslist.txt");
-	 	br = new BufferedReader(new FileReader(stopWordFile));
-	 	List<String> stopwordList = new ArrayList();
-	 	while((line = br.readLine()) != null) {
-			stopwordList.add(line);
-	 	}
-		br.close();
-
+		BufferedWriter bw2 = new BufferedWriter(new FileWriter(featureFile, append));
+		
 		// Read the wiki dataset
 		try {
-		//	System.out.println(System.getProperty("user.dir"));
-			String xmlFile = "datasets/wiki_articles_small.xml";
 			FileInputStream fileInputStream = new FileInputStream(xmlFile);
 			XMLInputFactory xmlFactory = XMLInputFactory.newInstance();
 			XMLEventReader xmlEventReader = xmlFactory.createXMLEventReader(fileInputStream);
@@ -53,7 +51,6 @@ public class PhiksCleaner {
 					StartElement startElement = xmlEvent.asStartElement();
 					if (startElement.getName().getLocalPart().equals("text")) {
 						xmlEvent = xmlEventReader.nextEvent();
-						//System.out.println("Page: " + xmlEvent.asCharacters().getData().toString());
 						String pageText = xmlEvent.asCharacters().getData().toString();
 						pageText = pageText.replaceAll("[^a-zA-Z0-9\\s]", "");
 						pageText = pageText.replaceAll("\\n+", " ");
@@ -68,13 +65,6 @@ public class PhiksCleaner {
 						int wordCount = 0;
 						for (String word : wordList) {
 							if(dictList.contains(word) && !stopwordList.contains(word)) {
-								// Check and add into feature list
-								if (!featureList.contains(word)) {
-									featureList.add(word);
-									// Write new feature into feature list file
-									bw2.write(word);
-									bw2.newLine();
-								}
 								// Check for duplication
 								if (!cleanedWordList.contains(word)) {
 									cleanedWordList.add(word);
@@ -82,13 +72,25 @@ public class PhiksCleaner {
 									wordCount++;
 								}
 							}  
-								//System.out.println(word);
 						}
+
 						// Write into cleaned dataset 01
 						// Skipp all pages with less than 3 words
-						if (cleanedLine != "" && wordCount > 2) {
-							bw.write(cleanedLine);
+						if (cleanedLine != "" && wordCount >= featureThreshold) {
+							bw.write(cleanedLine.trim());
 							bw.newLine();
+							tupleSize++;
+							System.out.println("Article "+ ++articleTotal +": " + cleanedLine);
+
+							// Check and add into feature list
+							for (String word : cleanedWordList) {
+								if (!featureList.contains(word)) {
+									featureList.add(word);
+									// Write new feature into feature list file
+									bw2.write(word);
+									bw2.newLine();
+								}
+							}
 						}
 					}
 				}
@@ -99,10 +101,76 @@ public class PhiksCleaner {
 			bw2.flush();
 			bw2.close();
 
-			// Create final dataset
-			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		System.out.println("Finished cleaning data.");
+	}
+
+	static void formatData(String finalFile) throws IOException {
+			// Create final oataset
+			BufferedWriter bw2 = new BufferedWriter(new FileWriter(finalFile));
+			// Read the cleaned dataset
+			BufferedReader br2 = new BufferedReader(new FileReader(cleanedDatasetFile));
+			// Get size of feature list
+			int featureSize = featureList.size();
+			
+			String line;
+			while ((line = br2.readLine()) != null) {
+				// Trim line first
+				String[] lineArr = line.split(" ");
+				// Init an empty binary tuple 
+				int[] tuple = new int[featureSize];
+
+				// Replace by 1 for existing features
+				for(int i = 0; i < lineArr.length; i++) {
+					int featureIdx = featureList.indexOf(lineArr[i]);
+					// Existing in the feature list
+					if (featureIdx != -1) {
+						tuple[featureIdx] = 1;
+					} else 
+						System.out.println("feature not exist in feature list!!!");
+				}
+
+				// Convert to string
+				String tupleStr = "";
+				for(int i = 0; i < featureSize; i++) {
+					tupleStr += tuple[i];
+				}
+
+				// Write into final dataset file
+				bw2.write(tupleStr);
+				bw2.newLine();
+			}
+
+			bw2.flush();
+			bw2.close();
+	}
+
+	static void loadFeatureList() throws IOException {
+		// Read stopWord list
+	 	BufferedReader br = new BufferedReader(new FileReader(featureFile));
+	 	String line;
+	 	while((line = br.readLine()) != null) {
+			featureList.add(line);
+	 	}
+		br.close();
+	}
+
+	static void loadDictionary() throws IOException {
+		// Read dictionary
+		BufferedReader br = new BufferedReader(new FileReader(dict));
+		String line;
+		while((line = br.readLine()) != null) {
+			dictList.add(line);
+		}
+		br.close();
+	 
+	 	// Read stopWord list
+	 	br = new BufferedReader(new FileReader(stopWordFile));
+	 	while((line = br.readLine()) != null) {
+			stopwordList.add(line);
+	 	}
+		br.close();
 	}
 }
