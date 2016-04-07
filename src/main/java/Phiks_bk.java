@@ -12,7 +12,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.HashMap;
 
-public class Phiks {
+public class Phiks_bk {
 		/// Current MIKI
 		static Set<String> currentMiki = new HashSet<>();
 		
