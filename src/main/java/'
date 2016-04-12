@@ -85,17 +85,17 @@ public class Phiks {
 			}
 		};
 
-		PairFunction<List<String>,List<String>,List<String>> mapper = new PairFunction<List<String>,List<String>,List<String>>() {
+		final PairFunction<List<String>,List<String>,List<String>> mapper = new PairFunction<List<String>,List<String>,List<String>>() {
 			public Tuple2<List<String>,List<String>> call(List<String> tran) {
 					// Get S = T intersect F-X 	
 					// Find S = transaction Intersect remainingFeatures
 					List<String> S = intersection(tran, remainFeatures); 
-					System.out.println(": Transaction: " + tran.toString());
-					System.out.println(": S " + S.toString());
+					System.out.println(tt+": Transaction: " + tran.toString());
+					System.out.println(tt+": S " + S.toString());
 
 					// Find projection of current miki on T
 					List<String> mikiProj = intersection(tran, currentMiki);
-					System.out.println(": Miki proj: " + mikiProj.toString());
+					System.out.println(tt+": Miki proj: " + mikiProj.toString());
 					// Increase frequency of projections
 					for (String item : S) {
 						// Create feature key 
@@ -109,45 +109,16 @@ public class Phiks {
 						// Increase frequency
 						featureMap.put(projKey,featureMap.get(projKey) + 1);
 						//System.out.println(featureMaps.get(item).toString());
-						
 					}
+
+					
+
 
 					List<String> candidate = candidates.get(0); 	
 					return new Tuple2<List<String>,List<String>>(candidate,candidate);	
 			}
 		};
 
-		PairFlatMapFunction<List<String>,List<String>,List<String>> pairMapper = new PairFlatMapFunction<List<String>,List<String>,List<String>>() {
-			public Iterable<Tuple2<List<String>,List<String>>> call(List<String> tran) {
-					// Get S = T intersect F-X 	
-					// Find S = transaction Intersect remainingFeatures
-					List<String> S = intersection(tran, remainFeatures); 
-					System.out.println(": Transaction: " + tran.toString());
-					System.out.println(": S " + S.toString());
-
-					// Find projection of current miki on T
-					List<String> mikiProj = intersection(tran, currentMiki);
-					System.out.println(": Miki proj: " + mikiProj.toString());
-					// Increase frequency of projections
-					List<Tuple2<List<String>,List<String>>> result = new ArrayList<>();
-					for (String item : S) {
-						// Create feature key 
-						List<String> key = new ArrayList<>();
-						key.add(item);
-						// Retrieve the feature map
-						Map<List<String>,Integer> featureMap = featureMaps.get(item);
-						// Retrieve the projection pair of feature
-						List<String> projKey = new ArrayList<>(mikiProj);
-						projKey.add(item);
-						result.add(new Tuple2<List<String>,List<String>>(projKey,projKey));	
-					}
-
-					List<String> candidate = candidates.get(0); 	
-								return result;	
-			}
-		};
-
-		//Function2<List<String>
 		for (; t<=k; t++) {
 
 		Integer tt = new Integer(t);
@@ -155,7 +126,7 @@ public class Phiks {
 			// For each transaction T, get S = T intesect F/X
 			int splitSize = 0;
 
-			JavaPairRDD<List<String>,List<String>> a = data.flatMapToPair(pairMapper).reduceByKey();
+			JavaPairRDD<List<String>,List<String>> a = data.mapToPair(mapper);
 			System.out.println("a = " + a.collect().toString());
 		}
 			// Loop each step t = 1 to k: itemset size
