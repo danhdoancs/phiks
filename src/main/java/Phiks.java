@@ -1,28 +1,36 @@
-import org.apache.spark.api.java.*;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.api.java.function.*;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.SparkConf;
-import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
-import org.apache.spark.broadcast.Broadcast;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Set;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.LinkedHashMap;
-import java.util.Iterator;
+import java.util.AbstractMap;
 import scala.Tuple2;
+
 
 public class Phiks {
 
 	public static void main(String[] args) {
-		//String dataset = "hdfs://localhost:9000/user/ddoan/phiks/input/cleaned_wiki_articles.txt";
-		//String featureListFile = "hdfs://localhost:9000/user/ddoan/phiks/input/feature_list.txt";
-		String dataset = "hdfs://localhost:9000/user/ddoan/phiks/input/debug_dataset.txt";
-		String featureListFile = "hdfs://localhost:9000/user/ddoan/phiks/input/debug_features.txt";
+
+		// Check input size
+		if (args.length < 3) {
+			System.err.println("Usage: <data_file> <feature_file> <k>");
+			return;
+		}
+
+		System.out.println(args.toString());
+		String dataFile = args[0];
+		String featureFile = args[1]; 
+		int k = Integer.parseInt(args[2]);	
+		String dataset = "hdfs://localhost:9000/user/ddoan/phiks/input/" + dataFile;
+		String featureListFile = "hdfs://localhost:9000/user/ddoan/phiks/input/" + featureFile;
 		SparkConf conf = new SparkConf().setAppName("PHIKS");
 		JavaSparkContext sc = new JavaSparkContext(conf);
 		SQLContext sqlContext = new SQLContext(sc);
@@ -37,9 +45,19 @@ public class Phiks {
 		
 		// Load feature list from HDFS
 		List<String> featureList = new ArrayList<>(sc.textFile(featureListFile).toArray());
-		Broadcast<List<String>> bcFeatureList = sc.broadcast(featureList);
+		// Size features
+		long Fsize = featureList.size();
+
+		// Check k size
+		if (k < 1 || k >= Fsize) {
+			System.err.println("K value is invalid. 0 < k < featureSize");
+			return;
+		}
+
+		//Broadcast<List<String>> bcFeatureList = sc.broadcast(featureList);
 		System.out.println("@@@@@@@@@@@@@@@ Output ##################");
-		System.out.println("Training Input size: " + data.count());
+		int N = (int)data.count();
+		System.out.println("Training Input size: " + N);
 		//System.out.println("Training total partitions: " + training.getNumPartitions());
 		//System.out.println("Feature List size: " + featureList.size());
 		//System.out.println("Training data: " + training.first().get(0));
@@ -50,194 +68,90 @@ public class Phiks {
 		Map<List<String>,Integer> mikiMap = new LinkedHashMap<>();
 		mikiMap.put(new ArrayList<String>(), 0);
 
-		// Size itemset
-		//int splitSize = 0;
-		int t = 1;
-		// Size k
-		int k = 3;
-		// Size features
-		long Fsize = featureList.size();
-
-		// Get remain features;
+		
+		for (int t=1; t<=k; t++) {
+			// Get remain features;
 		List<String> remainFeatures = getRemainFeatures(currentMiki, featureList);
-			System.out.println(t+": Remain features: " + remainFeatures);
-			// Get candidate set
-			List<List<String>> candidates = getCandidates(remainFeatures, currentMiki);	
-			System.out.println(t+": Candidates: " + candidates.toString());
-			// Generate feature maps
-			Map<String,Map<List<String>,Integer>> featureMaps = generateFeatureMaps(remainFeatures, mikiMap);
-			System.out.println(t+": Feature maps: " + featureMaps.toString());
+		//System.out.println(t+": Remain features: " + remainFeatures);
+		// Get candidate set
+		List<List<String>> candidates = getCandidates(remainFeatures, currentMiki);	
+		//System.out.println(t+": Candidates: " + candidates.toString());
+		// Generate feature maps
+		Map<String,Map<List<String>,Integer>> featureMaps = generateFeatureMaps(remainFeatures, mikiMap);
+		//System.out.println(t+": Feature maps: " + featureMaps.toString());
 
-		// Functions
-		FlatMapFunction<Iterator<List<String>>,Integer> partitionMapper = new FlatMapFunction<Iterator<List<String>>,Integer>() {
-			@Override
-			public Iterable<Integer> call(Iterator<List<String>> tranIt) {
-				
-				while(tranIt.hasNext()) {
-						
-						System.out.println("tran: " + tranIt.next().toString());
-					}
-				
-				List<Integer> aa = new ArrayList();
-				aa.add(1);
-				aa.add(3);
-				return aa;	
-			}
-		};
-
-		PairFunction<List<String>,List<String>,List<String>> mapper = new PairFunction<List<String>,List<String>,List<String>>() {
-			public Tuple2<List<String>,List<String>> call(List<String> tran) {
-					// Get S = T intersect F-X 	
-					// Find S = transaction Intersect remainingFeatures
-					List<String> S = intersection(tran, remainFeatures); 
-					System.out.println(": Transaction: " + tran.toString());
-					System.out.println(": S " + S.toString());
-
-					// Find projection of current miki on T
-					List<String> mikiProj = intersection(tran, currentMiki);
-					System.out.println(": Miki proj: " + mikiProj.toString());
-					// Increase frequency of projections
-					for (String item : S) {
-						// Create feature key 
-						List<String> key = new ArrayList<>();
-						key.add(item);
-						// Retrieve the feature map
-						Map<List<String>,Integer> featureMap = featureMaps.get(item);
-						// Retrieve the projection pair of feature
-						List<String> projKey = new ArrayList<>(mikiProj);
-						projKey.add(item);
-						// Increase frequency
-						featureMap.put(projKey,featureMap.get(projKey) + 1);
-						//System.out.println(featureMaps.get(item).toString());
-						
-					}
-
-					List<String> candidate = candidates.get(0); 	
-					return new Tuple2<List<String>,List<String>>(candidate,candidate);	
-			}
-		};
-
-		PairFlatMapFunction<List<String>,List<String>,List<String>> pairMapper = new PairFlatMapFunction<List<String>,List<String>,List<String>>() {
-			public Iterable<Tuple2<List<String>,List<String>>> call(List<String> tran) {
-					// Get S = T intersect F-X 	
-					// Find S = transaction Intersect remainingFeatures
-					List<String> S = intersection(tran, remainFeatures); 
-					System.out.println(": Transaction: " + tran.toString());
-					System.out.println(": S " + S.toString());
-
-					// Find projection of current miki on T
-					List<String> mikiProj = intersection(tran, currentMiki);
-					System.out.println(": Miki proj: " + mikiProj.toString());
-					// Increase frequency of projections
-					List<Tuple2<List<String>,List<String>>> result = new ArrayList<>();
-					for (String item : S) {
-						// Create feature key 
-						List<String> key = new ArrayList<>();
-						key.add(item);
-						// Retrieve the feature map
-						Map<List<String>,Integer> featureMap = featureMaps.get(item);
-						// Retrieve the projection pair of feature
-						List<String> projKey = new ArrayList<>(mikiProj);
-						projKey.add(item);
-						result.add(new Tuple2<List<String>,List<String>>(projKey,projKey));	
-					}
-
-					List<String> candidate = candidates.get(0); 	
-								return result;	
-			}
-		};
-
-		//Function2<List<String>
-		for (; t<=k; t++) {
-
-		Integer tt = new Integer(t);
 			// Scan the data split
 			// For each transaction T, get S = T intesect F/X
-			int splitSize = 0;
+			PairFlatMapFunction<List<String>,Map.Entry<String,List<String>>,Integer> pairMapper = new PairFlatMapFunction<List<String>,Map.Entry<String,List<String>>,Integer>() {
+				public Iterable<Tuple2<Map.Entry<String,List<String>>,Integer>> call(List<String> tran) {
+					// Get S = T intersect F-X 	
+					// Find S = transaction Intersect remainingFeatures
+					List<String> S = intersection(tran, remainFeatures); 
+					//System.out.println(": Transaction: " + tran.toString());
+					//System.out.println(": S " + S.toString());
 
-			JavaPairRDD<List<String>,List<String>> a = data.flatMapToPair(pairMapper).reduceByKey();
-			System.out.println("a = " + a.collect().toString());
-		}
-			// Loop each step t = 1 to k: itemset size
-		// Calculate projections
-		// Calculate entropy of all candidates
-		// Work on each partition
-		// Calculate entropy for each 1-itemset
-		// Using prefix/suffix to find projections
-		// For each size of itemset
+					// Find projection of current miki on T
+					List<String> mikiProj = intersection(tran, currentMiki);
+					//System.out.println(": Miki proj: " + mikiProj.toString());
+					// Increase frequency of projections
+					List<Tuple2<Map.Entry<String,List<String>>,Integer>> result = new ArrayList<>();
+					for (String item : S) {
+						// Create proj key
+						// Retrieve the projection pair of feature
+						List<String> projKey = new ArrayList<>(mikiProj);
+						projKey.add(item);
 
-		/*for (int t = 1; t <= k; t++) {
-			// Broadcast the size t from 1 - k
-			//Broadcast<Integer> bcItemSize = sc.broadcast(t);
-			//Broadcast<List<String>> bcCurrentMiki = sc.broadcast(currentMiki);
-			//Broadcast<Map<List<String>,Integer>> bcMikiMap = sc.broadcast(mikiMap);
-			// Work on each partition
-			training.foreachPartition(new VoidFunction<Iterator<List<String>>>() {
-					public void call(Iterator<List<String>> tranIt) {
-					// Get itemset size t
-					int t = bcItemSize.value();
-					List<String> currentMiki = bcCurrentMiki.value();
-					Map<List<String>,Integer> mikiMap = bcMikiMap.value();
-					List<String> featureList = bcFeatureList.value();
-					System.out.println("t: " + t);
-					System.out.println(" miki: " + currentMiki);
-					System.out.println("miki map: " + mikiMap);
-					System.out.println("feature list: " + featureList);
-					// Get remain features;
-					List<String> remainFeatures = getRemainFeatures(currentMiki, featureList);
-					System.out.println(": Remain features: " + remainFeatures);
-					// Get candidate set
-					List<List<String>> candidates = getCandidates(remainFeatures, currentMiki);	
-					System.out.println(": Candidates: " + candidates.toString());
-					// Generate feature maps
-					Map<String,Map<List<String>,Integer>> featureMaps = generateFeatureMaps(remainFeatures, mikiMap);
-					// Scan the data split
-					// For each transaction T, get S = T intesect F/X
-					int splitSize = 0;
-					while (tranIt.hasNext()) {
-						splitSize++;
-						List<String> tran = tranIt.next();
-						// Get S = T intersect F-X 	
-						// Find S = transaction Intersect remainingFeatures
-						List<String> S = intersection(tran, remainFeatures); 
-						System.out.println(": Transaction: " + tran.toString());
-						System.out.println("S: " + S.toString());
-						// Find projection of current miki on T
-						List<String> mikiProj = intersection(tran, currentMiki);
-						System.out.println("Miki proj: " + mikiProj.toString());
-						// Increase frequency of projections
-						for (String item : S) {
-							// Create feature key 
-							List<String> key = new ArrayList<>();
-							key.add(item);
-							// Retrieve the feature map
-							Map<List<String>,Integer> featureMap = featureMaps.get(item);
-							// Retrieve the projection pair of feature
-							List<String> projKey = new ArrayList<>(mikiProj);
-							projKey.add(item);
-							// Increase frequency
-							featureMap.put(projKey,featureMap.get(projKey) + 1);
-							//System.out.println(featureMaps.get(item).toString());
-						}
+						// Emit key,value pair
+						// Format: ((itemset,projection),1)
+						Map.Entry<String,List<String>> key = new AbstractMap.SimpleEntry<String,List<String>>(item,projKey);
+						Tuple2<Map.Entry<String,List<String>>,Integer> pair = new Tuple2<Map.Entry<String,List<String>>,Integer>(key,1);
+						result.add(pair);	
 					}
-					System.out.println("feature maps: " + featureMaps.toString());
-					// Get freqency of feature.0 projections end 0
-					// p.0 = p - p.1
-					updateFeatureMaps(featureMaps, mikiMap, splitSize);
-					System.out.println("feature maps: " + featureMaps.toString());
-					System.out.println("before miki: " + currentMiki.toString());
-					System.out.println("before miki map: " + mikiMap.toString());
-					updateCurrentMiki(featureMaps, currentMiki, mikiMap, splitSize);
-					System.out.println("current miki: " + currentMiki.toString());
-					// Check if i != k
-					// Compute entropy
-					// Else return candidate sets
-					}
-				});
-			}*/
-		}
 
-		public static void updateCurrentMiki(Map<String,Map<List<String>,Integer>> featureMaps, List<String> currentMiki, Map<List<String>,Integer> mikiMap, int splitSize) {
+					return result;	
+				}
+			};
+
+			JavaPairRDD<Map.Entry<String,List<String>>,Integer> projections = data.flatMapToPair(pairMapper).reduceByKey((a,b) -> a+b);
+			//System.out.println("a = " + projections.collect().toString());
+			
+			for (Map.Entry prjEntry : projections.collectAsMap().entrySet()) {
+				Map.Entry<String,List<String>> prjKey = (Map.Entry<String,List<String>>)prjEntry.getKey();
+				String item = prjKey.getKey();	
+				//System.out.println("item: " + item);
+				int prjValue = (int)prjEntry.getValue();
+				// Retrieve the feature map
+				Map<List<String>,Integer> featureMap = featureMaps.get(item);
+				// Increase frequency
+				featureMap.put(prjKey.getValue(), prjValue);
+				//System.out.println(featureMaps.get(item).toString());
+			}
+			// Update miki
+			// Get freqency of feature.0 projections end 0
+			// p.0 = p - p.1
+			updateFeatureMaps(featureMaps, mikiMap, N);
+			//System.out.println(t+": feature maps: " + featureMaps.toString());
+			//System.out.println("before miki: " + currentMiki.toString());
+			mikiMap = updateCurrentMiki(featureMaps, currentMiki, N);
+			System.out.println(t+": current miki: " + currentMiki.toString());
+			//System.out.println(t+": miki map: " + mikiMap.toString());
+			// Check if i != k
+			// Compute entropy
+			// Else return candidate sets
+
+		}
+	}
+
+		public static Map<List<String>,Integer> updateCurrentMiki(Map<String,Map<List<String>,Integer>> featureMaps, List<String> currentMiki, int splitSize) {
+			if (featureMaps == null) {
+				System.err.println("ERROR: feature maps is null");
+				return null;
+			}
+			if (currentMiki == null) {
+				System.err.println("ERROR: current miki is null");
+				return null;
+			}
+
 			double maxEntropy = 0.0;	
 			String candidate = null;
 			//System.out.println("miki feature maps: " + featureMaps.toString());
@@ -249,12 +163,11 @@ public class Phiks {
 					maxEntropy = entropy;
 					candidate = feature;
 				}
-				System.out.println(feature + ": entropy = " + entropy);
+				//System.out.println(feature + ": entropy = " + entropy);
 			}
 			// Update current miki
 			currentMiki.add(candidate);
-			mikiMap = featureMaps.get(candidate); 
-			//System.out.println("final miki: " + currentMiki.toString());
+			return featureMaps.get(candidate); 
 		}
 
 		public static double computeJointEntropy(String candidate,Map<String,Map<List<String>,Integer>> featureMaps, int splitSize) {
@@ -272,6 +185,15 @@ public class Phiks {
 		}
 
 		public static void updateFeatureMaps(Map<String,Map<List<String>,Integer>> featureMaps, Map<List<String>,Integer> mikiMap, int splitSize) {
+			if (featureMaps == null) {
+				System.err.println("ERROR: feature maps is null");
+				return; 
+			}
+			if (mikiMap == null) {
+				System.err.println("ERROR: current miki is null");
+				return;
+			}
+
 			for (Map.Entry entry : featureMaps.entrySet()) {
 				Map<List<String>,Integer> featureMap = (Map<List<String>,Integer>) entry.getValue(); 
 				String feature = (String) entry.getKey();
@@ -286,10 +208,18 @@ public class Phiks {
 					// Key for p.0
 					List<String> projKey0 = new ArrayList<>(projKey1);
 					projKey0.remove(feature);
+					// Check if projKey0 is valid or not
+					// If not, skip
+					if(featureMap.containsKey(projKey0) == false) {
+						continue;
+					}
+
 					// Value for p.0
 					//System.out.println("1="+projEntry.getValue()+", 2=" +  (int) mikiMap.get(projKey0) + ", 3=" + splitSize + ", 4=" + mikiMap.size());
 					int projValue0 = (int) projEntry.getValue();
-					if (mikiMap.size() > 1) {
+					if (mikiMap.size() > 1 && mikiMap.get(projKey0) != null) {
+						//System.out.println("projKey0: " + projKey0);
+						//System.out.println("projValue0: " + (int) mikiMap.get(projKey0));
 						projValue0 = (int) mikiMap.get(projKey0) - projValue0; 
 					} else {
 						projValue0 = splitSize - projValue0;
@@ -345,15 +275,6 @@ public class Phiks {
 				candidates.add(candidate);
 			}
 			return candidates;
-		}
-
-		public static  <T> List<T> union(List<T> list1, List<T> list2) {
-			Set<T> set = new HashSet<T>();
-
-			set.addAll(list1);
-			set.addAll(list2);
-
-			return new ArrayList<T>(set);
 		}
 
 		public static List<String> intersection(List<String> list1, List<String> list2) {
