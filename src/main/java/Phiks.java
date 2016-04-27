@@ -29,8 +29,8 @@ public class Phiks {
 		String dataFile = args[0];
 		String featureFile = args[1]; 
 		int k = Integer.parseInt(args[2]);	
-		String dataset = "hdfs://localhost:9000/user/ddoan/phiks/input/" + dataFile;
-		String featureListFile = "hdfs://localhost:9000/user/ddoan/phiks/input/" + featureFile;
+		String dataset = "hdfs://doan1.cs.ou.edu:9000/user/hduser/phiks/in/" + dataFile;
+		String featureListFile = "hdfs://doan1.cs.ou.edu:9000/user/hduser/phiks/in/" + featureFile;
 		SparkConf conf = new SparkConf().setAppName("PHIKS");
 		JavaSparkContext sc = new JavaSparkContext(conf);
 		SQLContext sqlContext = new SQLContext(sc);
