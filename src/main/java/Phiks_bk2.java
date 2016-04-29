@@ -16,14 +16,16 @@ import java.util.LinkedHashMap;
 import java.util.Iterator;
 import scala.Tuple2;
 
+import com.google.common.collect.Lists;
+
 public class Phiks_bk2 {
 	static List<String> featureList; 
 
 	public static void main(String[] args) {
 		//String dataset = "hdfs://localhost:9000/user/ddoan/phiks/input/cleaned_wiki_articles.txt";
 		//String featureListFile = "hdfs://localhost:9000/user/ddoan/phiks/input/feature_list.txt";
-		String dataset = "hdfs://localhost:9000/user/ddoan/phiks/input/debug_dataset.txt";
-		String featureListFile = "hdfs://localhost:9000/user/ddoan/phiks/input/debug_features.txt";
+		String dataset = "hdfs://ddoan.ddns.net:9000/user/hduser/phiks/in/cleaned_wiki_articles03.txt";
+		String featureListFile = "hdfs://ddoan.ddns.net:9000/user/hduser/phiks/in/feature_list03.txt";
 		SparkConf conf = new SparkConf().setAppName("PHIKS");
 		JavaSparkContext sc = new JavaSparkContext(conf);
 		SQLContext sqlContext = new SQLContext(sc);
@@ -59,7 +61,6 @@ public class Phiks_bk2 {
 		int k = 3;
 		// Size features
 		long Fsize = featureList.size();
-
 		
 		// Loop each step t = 1 to k: itemset size
 		// Calculate projections
@@ -76,6 +77,9 @@ public class Phiks_bk2 {
 			// Work on each partition
 			training.foreachPartition(new VoidFunction<Iterator<List<String>>>() {
 					public void call(Iterator<List<String>> tranIt) {
+					//Get list
+					List<List<String>> subset = Lists.newArrayList(tranIt);
+					System.out.println(subset.toString());
 					// Get itemset size t
 					int t = bcItemSize.value();
 					List<String> currentMiki = bcCurrentMiki.value();

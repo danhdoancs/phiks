@@ -12,9 +12,9 @@ import java.util.List;
 public class PhiksCleaner {
 	static int featureThreshold = 1;
 	static List<String> featureList = new ArrayList();
-	static File cleanedDatasetFile = new File("datasets/cleaned_wiki_articles03.txt");
-	static File featureFile = new File("datasets/feature_list03.txt");
-	static File dict = new File("database/american-english");
+	static File cleanedDatasetFile = new File("datasets/cleaned_wiki_articles_02.txt");
+	static File featureFile = new File("datasets/feature_list_02.txt");
+	static File dict = new File("database/google.txt");
 	static File stopWordFile = new File("database/stopwords.txt");
 	static List<String> dictList = new ArrayList(); 
 	static List<String> stopwordList = new ArrayList();
@@ -23,14 +23,18 @@ public class PhiksCleaner {
 	public static void main(String[] args) throws IOException {
 		loadDictionary();	
 		System.out.println("Load dictionary. Size = " +  dictList.size());
-		loadFeatureList();
-		System.out.println("Load feature list. Size = " + featureList.size());
+		//loadFeatureList();
+		//System.out.println("Load feature list. Size = " + featureList.size());
 
 		cleanData("datasets/wiki_articles_p1.xml", false);	
 		cleanData("datasets/wiki_articles_p2.xml", true);
-		cleanData("datasets/wiki_articles_p3.xml", true);
-		cleanData("datasets/wiki_articles_p4.xml", true);
-		//formatData("datasets/binary_wiki_articles03.txt");
+		//cleanData("datasets/wiki_articles_p3.xml", true);
+		//cleanData("datasets/wiki_articles_p4.xml", true);
+		//cleanData("datasets/wiki_articles_p5.xml", true);
+		//cleanData("datasets/wiki_articles_p6.xml", true);
+		//cleanData("datasets/wiki_articles_p7.xml", true);
+		//cleanData("datasets/wiki_articles_p8.xml", true);
+//formatData("datasets/binary_wiki_articles03.txt");
 	}
 
 	static void cleanData(String xmlFile, Boolean append) throws IOException {
@@ -40,17 +44,26 @@ public class PhiksCleaner {
 		// Prepare output feature list file
 		BufferedWriter bw2 = new BufferedWriter(new FileWriter(featureFile, append));
 		
+		
 		// Read the wiki dataset
 		try {
 			FileInputStream fileInputStream = new FileInputStream(xmlFile);
 			XMLInputFactory xmlFactory = XMLInputFactory.newInstance();
 			XMLEventReader xmlEventReader = xmlFactory.createXMLEventReader(fileInputStream);
 			while (xmlEventReader.hasNext()) {
+				// Bug
+			//	if (articleTotal == 270598 || articleTotal == 270598 || articleTotal == 289048) {
+			//		articleTotal++;
+			//		xmlEventReader.nextEvent();
+			//		continue;
+			//	}
+
 				XMLEvent xmlEvent = xmlEventReader.nextEvent();
 				if(xmlEvent.isStartElement()) {
 					StartElement startElement = xmlEvent.asStartElement();
 					if (startElement.getName().getLocalPart().equals("text")) {
 						xmlEvent = xmlEventReader.nextEvent();
+						if (xmlEvent.isCharacters()) {
 						String pageText = xmlEvent.asCharacters().getData().toString();
 						pageText = pageText.replaceAll("[^a-zA-Z0-9\\s]", "");
 						pageText = pageText.replaceAll("\\n+", " ");
@@ -91,7 +104,7 @@ public class PhiksCleaner {
 									bw2.newLine();
 								}
 							}
-						}
+						}}
 					}
 				}
 			}
