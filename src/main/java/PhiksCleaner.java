@@ -12,8 +12,8 @@ import java.util.List;
 public class PhiksCleaner {
 	static int featureThreshold = 1;
 	static List<String> featureList = new ArrayList();
-	static File cleanedDatasetFile = new File("datasets/cleaned_wiki_articles_02.txt");
-	static File featureFile = new File("datasets/feature_list_02.txt");
+	static File cleanedDatasetFile = new File("datasets/cleaned_wiki_articles_08.txt");
+	static File featureFile = new File("datasets/feature_list_08.txt");
 	static File dict = new File("database/google.txt");
 	static File stopWordFile = new File("database/stopwords.txt");
 	static List<String> dictList = new ArrayList(); 
@@ -28,13 +28,12 @@ public class PhiksCleaner {
 
 		cleanData("datasets/wiki_articles_p1.xml", false);	
 		cleanData("datasets/wiki_articles_p2.xml", true);
-		//cleanData("datasets/wiki_articles_p3.xml", true);
-		//cleanData("datasets/wiki_articles_p4.xml", true);
-		//cleanData("datasets/wiki_articles_p5.xml", true);
-		//cleanData("datasets/wiki_articles_p6.xml", true);
-		//cleanData("datasets/wiki_articles_p7.xml", true);
-		//cleanData("datasets/wiki_articles_p8.xml", true);
-//formatData("datasets/binary_wiki_articles03.txt");
+		cleanData("datasets/wiki_articles_p3.xml", true);
+		cleanData("datasets/wiki_articles_p4.xml", true);
+		cleanData("datasets/wiki_articles_p5.xml", true);
+		cleanData("datasets/wiki_articles_p6.xml", true);
+		cleanData("datasets/wiki_articles_p7.xml", true);
+		cleanData("datasets/wiki_articles_p8.xml", true);
 	}
 
 	static void cleanData(String xmlFile, Boolean append) throws IOException {

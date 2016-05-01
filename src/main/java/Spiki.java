@@ -53,14 +53,13 @@ public class Spiki implements Serializable {
 		Fsize = featureList.size();
 		System.out.println("Feature list size: " + Fsize);
 	}
+	
 	List<String> run(int k) {
-		
 		// Check k size
 		if (k < 1 || k >= Fsize) {
 			System.err.println("K value is invalid. 0 < k < featureSize");
 			return null;
 		}
-
 		//Broadcast<List<String>> bcFeatureList = sc.broadcast(featureList);
 		System.out.println("@@@@@@@@@@@@@@@ Output ##################");
 		
